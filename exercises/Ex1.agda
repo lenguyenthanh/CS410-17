@@ -78,7 +78,7 @@ vChopAppendFact : {X : Set}{m n : Nat}(xs : Vec X m)(ys : Vec X n) ->
                   vChop m (xs +V ys) == (xs , ys)
 vChopAppendFact {X} {zero} {n} [] ys = refl $ vChop zero ys
 vChopAppendFact {X} {suc m} {n} (x ,- xs) ys with vChop m (xs +V ys) | vChopAppendFact xs ys
-... | xm , yn | refl .(xs , ys) = refl ((x ,- xs) , ys)
+... | xm , yn | refl .(xs , ys) = refl $ (x ,- xs) , ys
 
 
 ------------------------------------------------------------------------------
@@ -99,17 +99,24 @@ vChopAppendFact {X} {suc m} {n} (x ,- xs) ys with vChop m (xs +V ys) | vChopAppe
 --??--1.3-(2)-----------------------------------------------------------------
 
 vMap : {X Y : Set} -> (X -> Y) -> {n : Nat} -> Vec X n -> Vec Y n
-vMap f xs = {! !}
+vMap f [] = []
+vMap f (x ,- xs) = f x ,- vMap f xs
 
 vMapIdFact : {X : Set}{f : X -> X}(feq : (x : X) -> f x == x) ->
              {n : Nat}(xs : Vec X n) -> vMap f xs == xs
-vMapIdFact feq xs = {! !}
+vMapIdFact feq [] = refl []
+vMapIdFact {X} {f} feq (x ,- xs) with vMap f xs | vMapIdFact feq xs | f x | feq x
+... | fxs | refl .xs | fx | refl .x = refl (x ,- xs)
 
 vMapCpFact : {X Y Z : Set}{f : Y -> Z}{g : X -> Y}{h : X -> Z}
                (heq : (x : X) -> f (g x) == h x) ->
              {n : Nat}(xs : Vec X n) ->
                vMap f (vMap g xs) == vMap h xs
-vMapCpFact heq xs = {! !}
+vMapCpFact heq [] = refl []
+vMapCpFact {X} {Y} {Z} {f} {g} {h} heq (x ,- xs) with f (g x) | h x | heq x
+    | vMap f (vMap g xs) | vMap h xs | vMapCpFact {X} {Y} {Z} {f} {g} {h} heq xs
+... | fgx | hx | refl .fgx | mapfgxs | maphxs | refl .mapfgxs = refl (fgx ,- mapfgxs)
+
 
 --??--------------------------------------------------------------------------
 
@@ -384,5 +391,5 @@ vTabulateProjections xs = {!  !}
 vProjectFromTable : {n : Nat}{X : Set}(f : 1 <= n -> X)(i : 1 <= n) ->
                     vProject (vTabulate f) i == f i
 vProjectFromTable f i = {!  !}
-     
+        
 --??--------------------------------------------------------------------------(x ,- xxs

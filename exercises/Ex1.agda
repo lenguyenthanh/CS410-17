@@ -105,17 +105,21 @@ vMap f (x ,- xs) = f x ,- vMap f xs
 vMapIdFact : {X : Set}{f : X -> X}(feq : (x : X) -> f x == x) ->
              {n : Nat}(xs : Vec X n) -> vMap f xs == xs
 vMapIdFact feq [] = refl []
-vMapIdFact {X} {f} feq (x ,- xs) with vMap f xs | vMapIdFact feq xs | f x | feq x
-... | fxs | refl .xs | fx | refl .x = refl (x ,- xs)
+vMapIdFact feq (x ,- xs) rewrite vMapIdFact feq xs | feq x = refl (x ,- xs)
+
+-- vMapIdFact {X} {f} feq (x ,- xs) with vMap f xs | vMapIdFact feq xs | f x | feq x
+-- ... | fxs | refl .xs | fx | refl .x = refl (x ,- xs)
 
 vMapCpFact : {X Y Z : Set}{f : Y -> Z}{g : X -> Y}{h : X -> Z}
                (heq : (x : X) -> f (g x) == h x) ->
              {n : Nat}(xs : Vec X n) ->
                vMap f (vMap g xs) == vMap h xs
 vMapCpFact heq [] = refl []
-vMapCpFact {X} {Y} {Z} {f} {g} {h} heq (x ,- xs) with f (g x) | h x | heq x
-    | vMap f (vMap g xs) | vMap h xs | vMapCpFact {X} {Y} {Z} {f} {g} {h} heq xs
-... | fgx | hx | refl .fgx | mapfgxs | maphxs | refl .mapfgxs = refl (fgx ,- mapfgxs)
+vMapCpFact  {X} {Y} {Z} {f} {g} {h} heq (x ,- xs) rewrite heq x | vMapCpFact {X} {Y} {Z} {f} {g} {h} heq xs = refl (h x ,- vMap h xs)
+
+-- vMapCpFact {X} {Y} {Z} {f} {g} {h} heq (x ,- xs) with f (g x) | h x | heq x
+--     | vMap f (vMap g xs) | vMap h xs | vMapCpFact {X} {Y} {Z} {f} {g} {h} heq xs
+-- ... | fgx | hx | refl .fgx | mapfgxs | maphxs | refl .mapfgxs = refl $ fgx ,- mapfgxs
 
 
 --??--------------------------------------------------------------------------
@@ -134,7 +138,11 @@ vMapCpFact {X} {Y} {Z} {f} {g} {h} heq (x ,- xs) with f (g x) | h x | heq x
 vMap+VFact : {X Y : Set}(f : X -> Y) ->
              {m n : Nat}(xs : Vec X m)(xs' : Vec X n) ->
              vMap f (xs +V xs') == (vMap f xs +V vMap f xs')
-vMap+VFact f xs xs' = {! !}
+vMap+VFact f [] xs' = refl $ vMap f  xs'
+vMap+VFact {X} {Y} f (x ,- xs) xs' rewrite vMap+VFact {X} {Y} f xs xs' = refl (f x ,- vMap f xs +V vMap f xs')
+
+-- vMap+VFact f (x ,- xs) xs' with vMap f $ xs +V xs' | vMap f xs +V vMap f xs' | vMap+VFact f xs xs'
+-- ... | vm | mv | refl .vm = refl $ f x ,- vm
 
 --??--------------------------------------------------------------------------
 
@@ -150,10 +158,12 @@ vMap+VFact f xs xs' = {! !}
 
 -- HINT: you will need to override the default invisibility of n to do this.
 vPure : {X : Set} -> X -> {n : Nat} -> Vec X n
-vPure x {n} = {!  !}
+vPure x {zero} = []
+vPure x {suc n} = x ,- vPure x
 
 _$V_ : {X Y : Set}{n : Nat} -> Vec (X -> Y) n -> Vec X n -> Vec Y n
-fs $V xs = {!  !}
+[] $V xs = []
+f ,- fs $V x ,- xs = f x ,- (fs $V xs)
 infixl 3 _$V_  -- "Application associates to the left,
                --  rather as we all did in the sixties." (Roger Hindley)
 
@@ -161,11 +171,11 @@ infixl 3 _$V_  -- "Application associates to the left,
 
 -- implement vMap again, but as a one-liner
 vec : {X Y : Set} -> (X -> Y) -> {n : Nat} -> Vec X n -> Vec Y n
-vec f xs = {!  !}
+vec f xs = vPure f $V xs
 
 -- implement the operation which pairs up corresponding elements
 vZip : {X Y : Set}{n : Nat} -> Vec X n -> Vec Y n -> Vec (X * Y) n
-vZip xs ys = {!  !}
+vZip xs ys = vec _,_ xs $V ys
 
 --??--------------------------------------------------------------------------
 
@@ -183,20 +193,24 @@ vZip xs ys = {!  !}
 
 vIdentity : {X : Set}{f : X -> X}(feq : (x : X) -> f x == x) ->
             {n : Nat}(xs : Vec X n) -> (vPure f $V xs) == xs
-vIdentity feq xs = {!  !}
+vIdentity feq [] = refl []
+vIdentity feq (x ,- xs) rewrite vIdentity feq xs | feq x = refl (x ,- xs)
 
 vHomomorphism : {X Y : Set}(f : X -> Y)(x : X) ->
                 {n : Nat} -> (vPure f $V vPure x) == vPure (f x) {n}
-vHomomorphism f x {n} = {!  !}
+vHomomorphism f x {zero} = refl []
+vHomomorphism f x {suc n} rewrite vHomomorphism f x {n} = refl (f x ,- vPure (f x))
 
 vInterchange : {X Y : Set}{n : Nat}(fs : Vec (X -> Y) n)(x : X) ->
                (fs $V vPure x) == (vPure (_$ x) $V fs)
-vInterchange fs x = {!  !}
+vInterchange [] x = refl []
+vInterchange (f ,- fs) x rewrite vInterchange fs x = refl (f x ,- (vPure (λ section → section x) $V fs))
 
 vComposition : {X Y Z : Set}{n : Nat}
                (fs : Vec (Y -> Z) n)(gs : Vec (X -> Y) n)(xs : Vec X n) ->
                (vPure _<<_ $V fs $V gs $V xs) == (fs $V (gs $V xs))
-vComposition fs gs xs = {!  !}
+vComposition [] [] [] = refl []
+vComposition (f ,- fs) (g ,- gs) (x ,- xs) rewrite vComposition fs gs xs = refl (f (g x) ,- (fs $V (gs $V xs)))
 
 --??--------------------------------------------------------------------------
 
@@ -219,25 +233,38 @@ data _<=_ : Nat -> Nat -> Set where
 
 --??--1.7-(1)-----------------------------------------------------------------
 
-all0<=4 : Vec (0 <= 4) {!  !}
-all0<=4 = {!  !}
+all0<=4 : Vec (0 <= 4) 1
+all0<=4 = o' (o' (o' (o' oz))) ,- []
 
-all1<=4 : Vec (1 <= 4) {!  !}
-all1<=4 = {!  !}
+all1<=4 : Vec (1 <= 4) 2
+all1<=4 = o' (o' (o' (os oz))) ,- o' (o' (os (o' oz))) ,- []
 
-all2<=4 : Vec (2 <= 4) {!  !}
-all2<=4 = {!  !}
+all2<=4 : Vec (2 <= 4) 1
+all2<=4 = o' (os (o' (os oz))) ,- []
        
-all3<=4 : Vec (3 <= 4) {!  !}
-all3<=4 = {!  !}
+all3<=4 : Vec (3 <= 4) 1
+all3<=4 = os (os (o' (os oz))) ,- []
 
-all4<=4 : Vec (4 <= 4) {!  !}
-all4<=4 = {!  !}
+all4<=4 : Vec (4 <= 4) 1
+all4<=4 = os (os (os (os oz))) ,- []
 
 -- Prove the following. A massive case analysis "rant" is fine.
 
 no5<=4 : 5 <= 4 -> Zero
-no5<=4 th = {!  !}
+no5<=4 (os (os (os (os ()))))
+no5<=4 (os (os (os (o' ()))))
+no5<=4 (os (os (o' (os ()))))
+no5<=4 (os (os (o' (o' ()))))
+no5<=4 (os (o' (os (os ()))))
+no5<=4 (os (o' (os (o' ()))))
+no5<=4 (os (o' (o' (os ()))))
+no5<=4 (os (o' (o' (o' ()))))
+no5<=4 (o' (os (os (os ()))))
+no5<=4 (o' (os (os (o' ()))))
+no5<=4 (o' (os (o' (os ()))))
+no5<=4 (o' (o' (os (o' ()))))
+no5<=4 (o' (o' (o' (os ()))))
+no5<=4 (o' (o' (o' (o' ()))))
 
 --??--------------------------------------------------------------------------
 
@@ -254,14 +281,18 @@ no5<=4 th = {!  !}
 
 _<?=_ : {X : Set}{n m : Nat} -> n <= m -> Vec X m
                      -> Vec X n
-th <?= xs = {!  !}
+oz <?= [] = []
+os th <?= (x ,- xs) = x ,- th <?= xs
+o' th <?= (_ ,- xs) = th <?= xs
 
 -- it shouldn't matter whether you map then select or select then map
 
 vMap<?=Fact : {X Y : Set}(f : X -> Y)
               {n m : Nat}(th : n <= m)(xs : Vec X m) ->
               vMap f (th <?= xs) == (th <?= vMap f xs)
-vMap<?=Fact f th xs = {!  !}
+vMap<?=Fact f oz [] = refl []
+vMap<?=Fact f (os th) (x ,- xs) rewrite vMap<?=Fact f th xs = refl (f x ,- (th <?= vMap f xs))
+vMap<?=Fact f (o' th) (_ ,- xs) rewrite vMap<?=Fact f th xs = refl (th <?= vMap f xs)
 
 --??--------------------------------------------------------------------------
 
@@ -275,10 +306,12 @@ vMap<?=Fact f th xs = {!  !}
 --??--1.9-(1)-----------------------------------------------------------------
 
 oi : {n : Nat} -> n <= n
-oi {n}  = {!  !}
+oi {zero} = oz
+oi {suc n} = os oi
 
 oe : {n : Nat} -> 0 <= n
-oe {n}  = {!  !}
+oe {zero} = oz
+oe {suc n} = o' oe
 
 --??--------------------------------------------------------------------------
 
@@ -288,7 +321,8 @@ oe {n}  = {!  !}
 --??--1.10-(1)----------------------------------------------------------------
 
 oeUnique : {n : Nat}(th : 0 <= n) -> th == oe
-oeUnique i = {!  !}
+oeUnique oz = refl oz
+oeUnique (o' i) rewrite oeUnique i = refl (o' oe)
 
 --??--------------------------------------------------------------------------
 
@@ -301,11 +335,33 @@ oeUnique i = {!  !}
 
 --??--1.11-(3)----------------------------------------------------------------
 
+-- induction lemma for oTooBig
+-- https://discord.com/channels/954089080197611551/966602283351703562/1316883677183086683
+-- p for predecessor
+op : {n m : Nat} -> suc n <= suc m -> n <= m
+op (os sn<=sm) = sn<=sm
+op {n} {suc m} (o' sn<=sm) = o' (op sn<=sm)
+
+-- oInduction : {n m : Nat} -> suc n <= suc m -> n <= m
+-- oInduction {zero} {zero} sn<=sm = oz
+-- oInduction {zero} {suc m} (os sn<=sm) = sn<=sm
+-- oInduction {zero} {suc m} (o' sn<=sm) = o' (oInduction sn<=sm)
+-- oInduction {suc n} {zero} (os sn<=sm) = sn<=sm
+-- oInduction {suc n} {zero} (o' ())
+-- oInduction {suc n} {suc m} (os sn<=sm) = sn<=sm
+-- oInduction {suc n} {suc m} (o' sn<=sm) = o' (oInduction sn<=sm)
+
 oTooBig : {n m : Nat} -> n >= m -> suc n <= m -> Zero
-oTooBig {n} {m} n>=m th = {!  !}
+oTooBig {zero} {zero} <> ()
+oTooBig {zero} {suc m} n>=m th = n>=m
+oTooBig {suc n} {suc m} n>=m th with op th
+... | l = oTooBig n>=m l
 
 oiUnique : {n : Nat}(th : n <= n) -> th == oi
-oiUnique th = {!  !}
+oiUnique {zero} oz = refl oz
+oiUnique {suc n} (os th) rewrite oiUnique th = refl (os oi)
+oiUnique {suc n} (o' th) with oTooBig (refl->= n) th
+... | ()
 
 --??--------------------------------------------------------------------------
 
@@ -315,7 +371,8 @@ oiUnique th = {!  !}
 --??--1.12-(1)----------------------------------------------------------------
 
 id-<?= : {X : Set}{n : Nat}(xs : Vec X n) -> (oi <?= xs) == xs
-id-<?= xs = {!  !}
+id-<?= [] = refl []
+id-<?= (x ,- xs) rewrite id-<?= xs = refl (x ,- xs)
 
 --??--------------------------------------------------------------------------
 
@@ -333,12 +390,21 @@ id-<?= xs = {!  !}
 --??--1.13-(3)----------------------------------------------------------------
 
 _o>>_ : {p n m : Nat} -> p <= n -> n <= m -> p <= m
-th o>> th' = {!  !}
+oz o>> th' = th'
+os th o>> os th' = os (th o>> th')
+os th o>> o' th' = o' (os th o>> th')
+o' th o>> os th' = o' (th o>> th')
+o' th o>> o' th' = o' (o' th o>> th')
 
 cp-<?= : {p n m : Nat}(th : p <= n)(th' : n <= m) ->
          {X : Set}(xs : Vec X m) ->
          ((th o>> th') <?= xs) == (th <?= (th' <?= xs))
-cp-<?= th th' xs = {!  !}
+cp-<?= oz th' xs with th' <?= xs
+... | [] = refl []
+cp-<?= (os th) (os th') (x ,- xs) rewrite cp-<?= th th' xs = refl (x ,- (th <?= (th' <?= xs)))
+cp-<?= (os th) (o' th') (x ,- xs) rewrite cp-<?= (os th) th' xs = refl (os th <?= (th' <?= xs))
+cp-<?= (o' th) (os th') (x ,- xs) rewrite cp-<?= th th' xs = refl (th <?= (th' <?= xs))
+cp-<?= (o' th) (o' th') (x ,- xs) rewrite cp-<?=  (o' th) th' xs = refl (o' th <?= (th' <?= xs))
 
 --??--------------------------------------------------------------------------
 
@@ -350,14 +416,21 @@ cp-<?= th th' xs = {!  !}
 --??--1.14-(3)----------------------------------------------------------------
 
 idThen-o>> : {n m : Nat}(th : n <= m) -> (oi o>> th) == th
-idThen-o>> th = {!  !}
+idThen-o>> oz = refl oz
+idThen-o>> (os th) rewrite idThen-o>> th = refl (os th)
+idThen-o>> {zero} {m} (o' th) = refl (oi o>> o' th)
+idThen-o>> {suc n} {m} (o' th) rewrite idThen-o>> th = refl (o' th)
 
 idAfter-o>> : {n m : Nat}(th : n <= m) -> (th o>> oi) == th
-idAfter-o>> th = {!  !}
+idAfter-o>> oz = refl oz
+idAfter-o>> (os th) rewrite idAfter-o>> th = refl (os th)
+idAfter-o>> (o' th) rewrite idAfter-o>> th = refl (o' th)
 
 assoc-o>> : {q p n m : Nat}(th0 : q <= p)(th1 : p <= n)(th2 : n <= m) ->
             ((th0 o>> th1) o>> th2) == (th0 o>> (th1 o>> th2))
-assoc-o>> th0 th1 th2 = {!  !}
+assoc-o>> oz th1 th2 = refl ((oz o>> th1) o>> th2)
+assoc-o>> (os th0) th1 th2 = {!   !}
+assoc-o>> (o' th0) th1 th2 = {!   !}
 
 --??--------------------------------------------------------------------------
 
@@ -389,7 +462,7 @@ vTabulateProjections xs = {!  !}
 
 -- HINT: oeUnique
 vProjectFromTable : {n : Nat}{X : Set}(f : 1 <= n -> X)(i : 1 <= n) ->
-                    vProject (vTabulate f) i == f i
-vProjectFromTable f i = {!  !}
-        
+                    vProject (vTabulate f) i == f i 
+vProjectFromTable f i = {!  !}       
+                                                              
 --??--------------------------------------------------------------------------(x ,- xxs

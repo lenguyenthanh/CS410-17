@@ -342,6 +342,10 @@ op : {n m : Nat} -> suc n <= suc m -> n <= m
 op (os sn<=sm) = sn<=sm
 op {n} {suc m} (o' sn<=sm) = o' (op sn<=sm)
 
+op' : {n m : Nat} -> suc n <= m -> n <= m
+op' (os sn<=m) = o' sn<=m
+op' (o' sn<=m) = o' (op' sn<=m)
+
 -- oInduction : {n m : Nat} -> suc n <= suc m -> n <= m
 -- oInduction {zero} {zero} sn<=sm = oz
 -- oInduction {zero} {suc m} (os sn<=sm) = sn<=sm
@@ -429,8 +433,14 @@ idAfter-o>> (o' th) rewrite idAfter-o>> th = refl (o' th)
 assoc-o>> : {q p n m : Nat}(th0 : q <= p)(th1 : p <= n)(th2 : n <= m) ->
             ((th0 o>> th1) o>> th2) == (th0 o>> (th1 o>> th2))
 assoc-o>> oz th1 th2 = refl ((oz o>> th1) o>> th2)
-assoc-o>> (os th0) th1 th2 = {!   !}
-assoc-o>> (o' th0) th1 th2 = {!   !}
+assoc-o>> (os th0) (os th1) (os th2) rewrite assoc-o>> th0 th1 th2 = refl (os (th0 o>> (th1 o>> th2)))
+assoc-o>> (os th0) (os th1) (o' th2) rewrite assoc-o>> (os th0) (os th1) th2 = refl (o' (os th0 o>> (os th1 o>> th2)))
+assoc-o>> (os th0) (o' th1) (os th2) rewrite assoc-o>> (os th0) th1 th2 = refl (o' (os th0 o>> (th1 o>> th2)))
+assoc-o>> (os th0) (o' th1) (o' th2) rewrite assoc-o>> (os th0) (o' th1) th2 = refl (o' (os th0 o>> (o' th1 o>> th2)))
+assoc-o>> (o' th0) (os th1) (os th2) rewrite assoc-o>> th0 th1 th2 = refl (o' (th0 o>> (th1 o>> th2)))
+assoc-o>> (o' th0) (os th1) (o' th2) rewrite assoc-o>> (o' th0) (os th1) th2 = refl (o' (o' th0 o>> (os th1 o>> th2)))
+assoc-o>> (o' th0) (o' th1) (os th2) rewrite assoc-o>> (o' th0) th1 th2 = refl (o' (o' th0 o>> (th1 o>> th2)))
+assoc-o>> (o' th0) (o' th1) (o' th2) rewrite assoc-o>> (o' th0) (o' th1) th2 = refl (o' (o' th0 o>> (o' th1 o>> th2)))
 
 --??--------------------------------------------------------------------------
 
@@ -451,18 +461,27 @@ vProject xs i = vHead (i <?= xs)
 
 --??--1.15-(3)----------------------------------------------------------------
 
+
 -- HINT: composition of functions
 vTabulate : {n : Nat}{X : Set} -> (1 <= n -> X) -> Vec X n
-vTabulate {n} f = {!  !}
+vTabulate {zero} f = []
+vTabulate {suc n} {X} f = let g : (1 <= n) -> X
+                              g 1n = f (o' 1n)
+                              sn = vTabulate g
+                              x = f (os (oe {n}))
+                          in x ,- sn
 
 -- This should be easy if vTabulate is correct.
 vTabulateProjections : {n : Nat}{X : Set}(xs : Vec X n) ->
                        vTabulate (vProject xs) == xs
-vTabulateProjections xs = {!  !}
+vTabulateProjections [] = refl (vTabulate (vProject []))
+vTabulateProjections (x ,- xs) rewrite vTabulateProjections xs = refl (x ,- xs)
 
 -- HINT: oeUnique
 vProjectFromTable : {n : Nat}{X : Set}(f : 1 <= n -> X)(i : 1 <= n) ->
-                    vProject (vTabulate f) i == f i 
-vProjectFromTable f i = {!  !}       
-                                                              
---??--------------------------------------------------------------------------(x ,- xxs
+                    vProject (vTabulate f) i == f i  
+vProjectFromTable {suc n} f (os i) with oeUnique i
+... | refl .oe = refl (f (os oe))
+vProjectFromTable {suc n} f (o' i) rewrite vProjectFromTable (\ 1n -> f (o' 1n)) i = refl (f (o' i))
+                                                                       
+--??--------------------------------------------------------------------------
